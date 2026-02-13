@@ -1,0 +1,17 @@
+{
+  // VSCode MCP Server Configuration
+  // Copy this file to .vscode/mcp.json and adjust paths.
+  // See: https://code.visualstudio.com/docs/copilot/customization/mcp-servers
+  "servers": {
+    "github-copilot-cli": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/dist/index.js"],
+      "env": {
+        // "autonomous" (default): auto-approve all permissions
+        // "interactive": ask user for permission via respond_to_copilot tool
+        "COPILOT_PERMISSION_MODE": "autonomous"
+      }
+    }
+  }
+}

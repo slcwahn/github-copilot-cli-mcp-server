@@ -1,11 +1,11 @@
 {
-  "name": "copilot-cli-mcp-server",
-  "version": "0.1.0",
+  "name": "github-copilot-cli-mcp-server",
+  "version": "0.2.0",
   "description": "MCP server that wraps GitHub Copilot CLI for OpenClaw agents",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "copilot-mcp-server": "dist/index.js"
+    "github-copilot-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/slcwahn/copilot-cli-mcp-server.git"
+    "url": "git+https://github.com/slcwahn/github-copilot-cli-mcp-server.git"
   },
   "keywords": [
     "mcp",
@@ -30,9 +30,9 @@
   "author": "slcwahn",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/slcwahn/copilot-cli-mcp-server/issues"
+    "url": "https://github.com/slcwahn/github-copilot-cli-mcp-server/issues"
   },
-  "homepage": "https://github.com/slcwahn/copilot-cli-mcp-server#readme",
+  "homepage": "https://github.com/slcwahn/github-copilot-cli-mcp-server#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^3.25.0"
