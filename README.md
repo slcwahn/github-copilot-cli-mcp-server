@@ -1,5 +1,7 @@
 # github-copilot-cli-mcp-server
 
+> ⚠️ **ALPHA VERSION** — This project is experimental and in early development. Testing across different environments is limited. Use at your own risk and expect breaking changes.
+
 A Node.js/TypeScript project that wraps GitHub Copilot CLI as a Model Context Protocol (MCP) server.
 
 Use Copilot CLI as a tool from any MCP-compatible client (VSCode, OpenClaw, Claude Desktop, etc.).
