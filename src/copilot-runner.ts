@@ -8,7 +8,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { stripAnsi } from "./utils.js";
 import {
   type PermissionMode,
@@ -112,6 +112,39 @@ function findCopilotPath(): string {
   // 최후의 시도
   _cachedCopilotPath = "copilot";
   return _cachedCopilotPath;
+}
+
+/**
+ * Copilot CLI 스크립트가 Node.js shebang 스크립트인지 확인합니다.
+ * shebang이 `#!/usr/bin/env node` 또는 `#!/path/to/node`인 경우 true를 반환합니다.
+ */
+function isNodeScript(filePath: string): boolean {
+  try {
+    const fd = readFileSync(filePath, { encoding: "utf-8", flag: "r" });
+    const firstLine = fd.split("\n")[0] || "";
+    return /^#!.*\bnode\b/.test(firstLine);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * spawn에 전달할 실행 커맨드와 인수 prefix를 결정합니다.
+ *
+ * MCP 환경에서는 PATH가 제한되어 `#!/usr/bin/env node` shebang이
+ * node를 찾지 못해 ENOENT 오류가 발생할 수 있습니다.
+ * 이를 방지하기 위해 Node.js 스크립트인 경우 `process.execPath`(현재 node)로
+ * 직접 실행합니다.
+ *
+ * @returns [command, argPrefix] — spawn(command, [...argPrefix, ...args])
+ */
+export function resolveCopilotCommand(copilotPath: string): [string, string[]] {
+  if (isNodeScript(copilotPath)) {
+    // Node.js 스크립트: process.execPath로 직접 실행
+    return [process.execPath, [copilotPath]];
+  }
+  // 네이티브 바이너리 또는 기타: 직접 실행
+  return [copilotPath, []];
 }
 
 /**
@@ -219,6 +252,12 @@ function buildArgs(options: CopilotRunOptions): string[] {
     // ask_user는 유지 (Copilot이 질문할 수 있도록)
   }
 
+  // 작업 디렉토리를 --add-dir로 추가 (Copilot CLI에 --cwd 옵션이 없으므로)
+  // cwd가 지정된 경우, Copilot이 해당 디렉토리의 파일에 접근할 수 있도록 함
+  if (options.cwd && !addDirs.includes(options.cwd)) {
+    args.push("--add-dir", options.cwd);
+  }
+
   // 추가 디렉토리
   for (const dir of addDirs) {
     args.push("--add-dir", dir);
@@ -269,6 +308,7 @@ async function runCopilotInteractive(
   }
 
   const copilotPath = findCopilotPath();
+  const [command, argPrefix] = resolveCopilotCommand(copilotPath);
   const args = buildArgs(options);
 
   return new Promise<CopilotRunResult>((resolve) => {
@@ -284,7 +324,7 @@ async function runCopilotInteractive(
       options.resumeSessionId ||
       `pty-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    const ptyProcess = nodePty.spawn(copilotPath, args, {
+    const ptyProcess = nodePty.spawn(command, [...argPrefix, ...args], {
       name: "xterm",
       cols: 120,
       rows: 40,
@@ -385,6 +425,7 @@ async function runCopilotAutonomous(
   const { cwd, timeoutMs = 300_000 } = options;
 
   const copilotPath = findCopilotPath();
+  const [command, argPrefix] = resolveCopilotCommand(copilotPath);
   const args = buildArgs(options);
 
   return new Promise<CopilotRunResult>((resolve, reject) => {
@@ -395,7 +436,7 @@ async function runCopilotAutonomous(
     let proc: ChildProcess;
 
     try {
-      proc = spawn(copilotPath, args, {
+      proc = spawn(command, [...argPrefix, ...args], {
         cwd: cwd || process.cwd(),
         env: {
           ...process.env,
@@ -495,10 +536,11 @@ export async function checkCopilotAvailable(): Promise<{
   error?: string;
 }> {
   const copilotPath = findCopilotPath();
+  const [command, argPrefix] = resolveCopilotCommand(copilotPath);
 
   return new Promise((resolve) => {
     try {
-      const proc = spawn(copilotPath, ["--version"], {
+      const proc = spawn(command, [...argPrefix, "--version"], {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
