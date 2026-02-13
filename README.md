@@ -1,29 +1,25 @@
 # github-copilot-cli-mcp-server
 
-GitHub Copilot CLI를 Model Context Protocol (MCP) 서버로 래핑하는 Node.js/TypeScript 프로젝트입니다.
+A Node.js/TypeScript project that wraps GitHub Copilot CLI as a Model Context Protocol (MCP) server.
 
-MCP를 지원하는 모든 클라이언트(VSCode, OpenClaw, Claude Desktop 등)에서 Copilot CLI를 도구로 사용할 수 있습니다.
+Use Copilot CLI as a tool from any MCP-compatible client (VSCode, OpenClaw, Claude Desktop, etc.).
 
 ## Features
 
-- **단일 MCP 호출로 Copilot 대화 완료**: 프롬프트 전송 → 결과 수신을 하나의 도구 호출로
-- **세션 재개**: 이전 세션 ID로 대화 이어가기
-- **권한 모드 선택**: Interactive(사용자 확인) / Autonomous(자동 승인)
-- **모델 선택**: Copilot이 지원하는 모든 모델 사용 가능
-- **작업 디렉토리 지정**: 파일 접근이 필요한 작업에 cwd 지정 가능
+- **Complete Copilot conversations in a single MCP call**: Send a prompt → receive results in one tool call
+- **Session resumption**: Continue previous conversations using session IDs
+- **Permission mode selection**: Interactive (user confirmation) / Autonomous (auto-approve)
+- **Model selection**: Use any model supported by Copilot
+- **Working directory specification**: Set cwd for tasks that require file access
 
 ## Prerequisites
 
-- **Node.js** 20.0.0 이상
-- **GitHub Copilot CLI** 설치 및 인증 완료
+- **Node.js** 20.0.0 or higher
+- **GitHub Copilot CLI** installed and authenticated
   ```bash
-  # gh를 통한 설치
-  gh copilot
-
-  # 또는 직접 설치
-  # https://github.com/github/copilot-cli
+  npm install -g @github/copilot-cli
   ```
-- **GitHub Copilot 구독** (Individual, Business, or Enterprise)
+- **GitHub Copilot subscription** (Individual, Business, or Enterprise)
 
 ## Installation
 
@@ -46,19 +42,19 @@ npm run dev
 
 ### `run_copilot_conversation`
 
-프롬프트로 Copilot CLI 대화를 실행합니다.
+Runs a Copilot CLI conversation with a prompt.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `prompt` | string | ✅ | Copilot에 보낼 프롬프트 |
-| `model` | string | | AI 모델 (e.g., `claude-sonnet-4`, `gpt-4.1`) |
-| `cwd` | string | | 작업 디렉토리 |
-| `allow_tools` | string[] | | 허용할 도구 목록 |
-| `add_dirs` | string[] | | 추가 접근 허용 디렉토리 |
-| `timeout_ms` | number | | 타임아웃 (기본: 300000ms = 5분) |
-| `permission_mode` | string | | 권한 모드: `"autonomous"` (기본) 또는 `"interactive"` |
+| `prompt` | string | ✅ | Prompt to send to Copilot |
+| `model` | string | | AI model (e.g., `claude-sonnet-4`, `gpt-4.1`) |
+| `cwd` | string | | Working directory |
+| `allow_tools` | string[] | | List of tools to allow |
+| `add_dirs` | string[] | | Additional directories to grant access |
+| `timeout_ms` | number | | Timeout (default: 300000ms = 5 minutes) |
+| `permission_mode` | string | | Permission mode: `"autonomous"` (default) or `"interactive"` |
 
 **Example:**
 
@@ -75,17 +71,17 @@ npm run dev
 
 ### `resume_copilot_session`
 
-이전 세션을 재개하여 대화를 이어갑니다.
+Resumes a previous session to continue the conversation.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `session_id` | string | ✅ | 세션 ID (UUID) |
-| `prompt` | string | ✅ | 후속 프롬프트 |
-| `model` | string | | AI 모델 |
-| `cwd` | string | | 작업 디렉토리 |
-| `timeout_ms` | number | | 타임아웃 |
+| `session_id` | string | ✅ | Session ID (UUID) |
+| `prompt` | string | ✅ | Follow-up prompt |
+| `model` | string | | AI model |
+| `cwd` | string | | Working directory |
+| `timeout_ms` | number | | Timeout |
 
 **Example:**
 
@@ -101,24 +97,24 @@ npm run dev
 
 ### `list_copilot_sessions`
 
-재개 가능한 Copilot CLI 세션 목록을 보여줍니다.
+Lists resumable Copilot CLI sessions.
 
 ### `respond_to_copilot`
 
-Interactive 모드에서 Copilot의 권한 질문에 응답합니다.
+Responds to Copilot's permission prompts in Interactive mode.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `session_id` | string | ✅ | 대기 중인 세션 ID |
-| `response` | string | ✅ | 응답 (`"yes"`, `"no"`, 또는 자유 텍스트) |
+| `session_id` | string | ✅ | Pending session ID |
+| `response` | string | ✅ | Response (`"yes"`, `"no"`, or free text) |
 
 ## Configuration
 
 ### VSCode
 
-`.vscode/mcp.json` 파일에 다음을 추가합니다:
+Add the following to your `.vscode/mcp.json` file:
 
 ```json
 {
@@ -135,38 +131,38 @@ Interactive 모드에서 Copilot의 권한 질문에 응답합니다.
 }
 ```
 
-또는 Command Palette에서 **MCP: Add Server** → **stdio** → 위 설정을 입력합니다.
+Or use the Command Palette: **MCP: Add Server** → **stdio** → enter the configuration above.
 
-> **Tip**: `${workspaceFolder}`를 사용하면 워크스페이스 기준 상대 경로를 지정할 수 있습니다.
+> **Tip**: Use `${workspaceFolder}` to specify relative paths based on your workspace.
 
-전역 설정은 Command Palette에서 **MCP: Open User Configuration**으로 사용자 프로필에 추가합니다.
+For global configuration, use the Command Palette: **MCP: Open User Configuration** to add it to your user profile.
 
 ### OpenClaw (mcporter)
 
-[OpenClaw](https://openclaw.ai)는 `mcporter` 스킬을 통해 MCP 서버를 지원합니다.
+[OpenClaw](https://openclaw.ai) supports MCP servers through the `mcporter` skill.
 
-#### mcporter CLI로 등록
+#### Register via mcporter CLI
 
 ```bash
-# 서버 등록
+# Register the server
 mcporter config add github-copilot-cli \
   --command node \
   --arg /path/to/github-copilot-cli-mcp-server/dist/index.js \
   --env COPILOT_PERMISSION_MODE=autonomous
 
-# 등록 확인
+# Verify registration
 mcporter list
 
-# 도구 스키마 확인
+# Check tool schema
 mcporter list github-copilot-cli --schema
 
-# 도구 직접 호출
+# Call a tool directly
 mcporter call github-copilot-cli.run_copilot_conversation prompt="Fix the bug in main.ts"
 ```
 
-#### mcporter 설정 파일 직접 편집
+#### Edit mcporter config file directly
 
-`~/.mcporter/mcporter.json` 또는 프로젝트의 `config/mcporter.json`:
+`~/.mcporter/mcporter.json` or project-level `config/mcporter.json`:
 
 ```json
 {
@@ -185,7 +181,7 @@ mcporter call github-copilot-cli.run_copilot_conversation prompt="Fix the bug in
 
 ### Claude Desktop
 
-`claude_desktop_config.json`에 추가:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -202,34 +198,34 @@ mcporter call github-copilot-cli.run_copilot_conversation prompt="Fix the bug in
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `COPILOT_CLI_PATH` | (auto-detect) | Copilot CLI 바이너리 경로 |
-| `COPILOT_PERMISSION_MODE` | `autonomous` | 권한 모드: `autonomous` 또는 `interactive` |
+| `COPILOT_CLI_PATH` | (auto-detect) | Path to Copilot CLI binary |
+| `COPILOT_PERMISSION_MODE` | `autonomous` | Permission mode: `autonomous` or `interactive` |
 
 ## Permission Handling
 
-Copilot CLI는 파일 수정, 셸 명령 실행 등에 대해 사용자 승인을 요청할 수 있습니다. 이 MCP 서버는 두 가지 권한 모드를 지원합니다:
+Copilot CLI may request user approval for file modifications, shell command execution, and other actions. This MCP server supports two permission modes:
 
-### Autonomous 모드 (기본)
+### Autonomous Mode (default)
 
 ```
 COPILOT_PERMISSION_MODE=autonomous
 ```
 
-- `--allow-all-tools --no-ask-user` 플래그로 Copilot CLI 실행
-- 모든 권한을 자동 승인하고 사용자 질문 없이 완료
-- **적합한 경우**: 신뢰할 수 있는 작업, 자동화 파이프라인, CI/CD
+- Runs Copilot CLI with `--allow-all-tools --no-ask-user` flags
+- Auto-approves all permissions and completes without user prompts
+- **Best for**: Trusted tasks, automation pipelines, CI/CD
 
-### Interactive 모드
+### Interactive Mode
 
 ```
 COPILOT_PERMISSION_MODE=interactive
 ```
 
-- Copilot CLI를 PTY로 실행하여 대화형 입출력 유지
-- 권한 요청 시 MCP 응답에 `needsInput: true`를 포함하여 반환
-- MCP 클라이언트(사용자 또는 에이전트)가 `respond_to_copilot` 도구로 응답
+- Runs Copilot CLI with PTY for interactive I/O
+- Returns `needsInput: true` in the MCP response when a permission prompt is detected
+- The MCP client (user or agent) responds via the `respond_to_copilot` tool
 
-**Interactive 모드 흐름:**
+**Interactive Mode Flow:**
 
 ```
 MCP Client                    MCP Server                   Copilot CLI
@@ -238,23 +234,23 @@ MCP Client                    MCP Server                   Copilot CLI
     ├─────────────────────────────►│  spawn (PTY)               │
     │                              ├───────────────────────────►│
     │                              │                            │
-    │                              │  "파일을 수정하시겠습니까?" │
+    │                              │  "Modify this file?"       │
     │                              │◄───────────────────────────┤
     │  { needsInput: true,         │                            │
-    │    question: "파일을 수정..." }│                            │
+    │    question: "Modify..." }   │                            │
     │◄─────────────────────────────┤                            │
     │                              │                            │
     │  respond_to_copilot("yes")   │                            │
     ├─────────────────────────────►│  write "yes\n"             │
     │                              ├───────────────────────────►│
     │                              │                            │
-    │                              │  (완료)                     │
+    │                              │  (complete)                │
     │                              │◄───────────────────────────┤
     │  { output: "..." }           │                            │
     │◄─────────────────────────────┤                            │
 ```
 
-> **Note**: Interactive 모드는 `node-pty` (optional dependency)가 필요합니다. 설치되지 않은 경우 자동으로 autonomous 모드로 폴백합니다.
+> **Note**: Interactive mode requires `node-pty` (optional dependency). If not installed, it automatically falls back to autonomous mode.
 
 ## Architecture
 
@@ -298,43 +294,43 @@ MCP Client (VSCode / OpenClaw / Claude Desktop)
 ## Development
 
 ```bash
-# 개발 모드
+# Development mode
 npm run dev
 
-# 빌드
+# Build
 npm run build
 
-# 타입 체크
+# Type check
 npm run typecheck
 
-# 테스트
+# Test
 npm test
 ```
 
 ## How It Works
 
-1. MCP 클라이언트가 `run_copilot_conversation` 도구를 호출
-2. 권한 모드에 따라:
-   - **Autonomous**: `copilot -p "<prompt>" -s --allow-all-tools --no-ask-user` 실행
-   - **Interactive**: PTY로 실행, 권한 질문 감지 시 MCP 클라이언트에 전달
-3. Copilot CLI가 작업 수행 (코드 생성, 수정, 분석 등)
-4. 완료 후 출력을 MCP 응답으로 반환
-5. 세션 ID가 있으면 `resume_copilot_session`으로 재개 가능
+1. The MCP client calls the `run_copilot_conversation` tool
+2. Depending on the permission mode:
+   - **Autonomous**: Runs `copilot -p "<prompt>" -s --allow-all-tools --no-ask-user`
+   - **Interactive**: Runs with PTY, forwarding permission prompts to the MCP client
+3. Copilot CLI performs the task (code generation, modification, analysis, etc.)
+4. Returns the output as an MCP response upon completion
+5. If a session ID is available, the session can be resumed via `resume_copilot_session`
 
 ## Copilot CLI Options Used
 
 | Flag | Purpose |
 |------|---------|
-| `-p <prompt>` | 비대화형 모드로 프롬프트 실행 |
-| `-s` | Silent 모드 (통계 없이 응답만) |
-| `--allow-all-tools` | 모든 도구 자동 승인 (autonomous 모드) |
-| `--no-ask-user` | 질문 없이 자율 동작 (autonomous 모드) |
-| `--no-custom-instructions` | AGENTS.md 등 무시 |
-| `--no-color` | ANSI 색상 비활성화 |
-| `--no-alt-screen` | 터미널 대체 화면 비활성화 |
-| `--resume <id>` | 세션 재개 |
-| `--model <model>` | 모델 선택 |
-| `--add-dir <dir>` | 추가 디렉토리 접근 |
+| `-p <prompt>` | Run prompt in non-interactive mode |
+| `-s` | Silent mode (response only, no stats) |
+| `--allow-all-tools` | Auto-approve all tools (autonomous mode) |
+| `--no-ask-user` | Autonomous operation without prompts (autonomous mode) |
+| `--no-custom-instructions` | Ignore AGENTS.md and similar files |
+| `--no-color` | Disable ANSI colors |
+| `--no-alt-screen` | Disable terminal alternate screen |
+| `--resume <id>` | Resume a session |
+| `--model <model>` | Select a model |
+| `--add-dir <dir>` | Grant access to additional directories |
 
 ## License
 
