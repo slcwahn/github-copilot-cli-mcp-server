@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Copilot CLI MCP Server
+ * GitHub Copilot CLI MCP Server
  *
  * GitHub Copilot CLI를 MCP (Model Context Protocol) 서버로 래핑합니다.
- * OpenClaw 에이전트가 Copilot CLI를 MCP 도구로 사용할 수 있게 합니다.
+ * VSCode, OpenClaw, Claude Desktop 등 MCP 클라이언트에서 Copilot CLI를 도구로 사용할 수 있게 합니다.
  *
- * Transport: stdio (OpenClaw 통합용)
+ * Transport: stdio (JSON-RPC)
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -14,14 +14,18 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { runCopilot } from "./copilot-runner.js";
 import { SessionManager } from "./session-manager.js";
+import {
+  getPermissionMode,
+  pendingInputManager,
+} from "./permission-handler.js";
 
 const sessionManager = new SessionManager();
 
 // MCP 서버 생성
 const server = new McpServer(
   {
-    name: "copilot-cli-mcp-server",
-    version: "0.1.0",
+    name: "github-copilot-cli-mcp-server",
+    version: "0.2.0",
   },
   {
     capabilities: {
@@ -35,7 +39,7 @@ const server = new McpServer(
 // ─────────────────────────────────────────────
 server.tool(
   "run_copilot_conversation",
-  "Execute a prompt with GitHub Copilot CLI. Runs Copilot in non-interactive mode (-p) with auto-approval. Returns the complete response. Use this for one-shot tasks like code generation, explanation, debugging, etc.",
+  "Execute a prompt with GitHub Copilot CLI. Runs Copilot in non-interactive mode (-p) and returns the complete response. Use this for one-shot tasks like code generation, explanation, debugging, etc. In interactive permission mode, may return with needsInput=true if Copilot asks a permission question — use respond_to_copilot to answer.",
   {
     prompt: z.string().describe("The prompt to send to Copilot CLI"),
     model: z
@@ -54,7 +58,7 @@ server.tool(
       .array(z.string())
       .optional()
       .describe(
-        "Specific tools to allow (e.g., 'shell(git:*)', 'write'). If not set, all tools are allowed."
+        "Specific tools to allow (e.g., 'shell(git:*)', 'write'). If not set, all tools are allowed in autonomous mode."
       ),
     add_dirs: z
       .array(z.string())
@@ -64,24 +68,30 @@ server.tool(
       .number()
       .optional()
       .describe("Timeout in milliseconds (default: 300000 = 5 minutes)"),
-    no_ask_user: z
-      .boolean()
+    permission_mode: z
+      .enum(["autonomous", "interactive"])
       .optional()
       .describe(
-        "Disable ask_user tool so Copilot works autonomously (default: true)"
+        "Permission handling mode. 'autonomous' (default): auto-approve all tools. 'interactive': ask MCP client for permission via respond_to_copilot tool."
       ),
   },
   async (args) => {
     try {
+      const effectiveMode =
+        args.permission_mode || getPermissionMode();
+
       const result = await runCopilot({
         prompt: args.prompt,
         model: args.model,
         cwd: args.cwd,
         allowTools: args.allow_tools,
-        allowAllTools: !args.allow_tools || args.allow_tools.length === 0,
+        allowAllTools:
+          effectiveMode === "autonomous" &&
+          (!args.allow_tools || args.allow_tools.length === 0),
         addDirs: args.add_dirs,
         timeoutMs: args.timeout_ms,
-        noAskUser: args.no_ask_user ?? true,
+        noAskUser: effectiveMode === "autonomous",
+        permissionMode: effectiveMode,
       });
 
       // 세션 ID가 있으면 등록
@@ -100,19 +110,28 @@ server.tool(
       }
       metadata.push(`Duration: ${result.durationMs}ms`);
       metadata.push(`Exit code: ${result.exitCode}`);
+      metadata.push(`Permission mode: ${effectiveMode}`);
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: result.output,
-          },
-          {
-            type: "text" as const,
-            text: `\n---\n${metadata.join(" | ")}`,
-          },
-        ],
-      };
+      const content: Array<{ type: "text"; text: string }> = [
+        {
+          type: "text" as const,
+          text: result.output,
+        },
+        {
+          type: "text" as const,
+          text: `\n---\n${metadata.join(" | ")}`,
+        },
+      ];
+
+      // Interactive 모드에서 입력 대기 중인 경우
+      if (result.needsInput && result.pendingQuestion) {
+        content.push({
+          type: "text" as const,
+          text: `\n⚠️ PERMISSION REQUESTED: ${result.pendingQuestion}\nUse respond_to_copilot tool with session_id="${result.sessionId}" to respond.`,
+        });
+      }
+
+      return { content };
     } catch (error) {
       return {
         content: [
@@ -152,11 +171,17 @@ server.tool(
       .number()
       .optional()
       .describe("Timeout in milliseconds (default: 300000 = 5 minutes)"),
+    permission_mode: z
+      .enum(["autonomous", "interactive"])
+      .optional()
+      .describe("Permission handling mode for this session"),
   },
   async (args) => {
     try {
       // 세션 메타데이터 확인
       const sessionMeta = sessionManager.getSession(args.session_id);
+      const effectiveMode =
+        args.permission_mode || getPermissionMode();
 
       const result = await runCopilot({
         prompt: args.prompt,
@@ -164,8 +189,9 @@ server.tool(
         model: args.model || sessionMeta?.model,
         cwd: args.cwd || sessionMeta?.cwd,
         timeoutMs: args.timeout_ms,
-        allowAllTools: true,
-        noAskUser: true,
+        allowAllTools: effectiveMode === "autonomous",
+        noAskUser: effectiveMode === "autonomous",
+        permissionMode: effectiveMode,
       });
 
       // 세션 사용 시간 업데이트
@@ -175,6 +201,7 @@ server.tool(
       metadata.push(`Session ID: ${args.session_id}`);
       metadata.push(`Duration: ${result.durationMs}ms`);
       metadata.push(`Exit code: ${result.exitCode}`);
+      metadata.push(`Permission mode: ${effectiveMode}`);
 
       return {
         content: [
@@ -207,23 +234,39 @@ server.tool(
 // ─────────────────────────────────────────────
 server.tool(
   "list_copilot_sessions",
-  "List available Copilot CLI sessions that can be resumed.",
+  "List available Copilot CLI sessions that can be resumed. Also shows any sessions waiting for permission input.",
   {},
   async () => {
     try {
       const managedSessions = sessionManager.listSessions();
       const copilotSessions = sessionManager.listCopilotSessions();
+      const pendingInputs = pendingInputManager.listPending();
 
       const lines: string[] = [];
+
+      // 대기 중인 입력이 있으면 먼저 표시
+      if (pendingInputs.length > 0) {
+        lines.push("## ⚠️ Pending Permission Requests");
+        lines.push("");
+        for (const pending of pendingInputs) {
+          lines.push(`- **${pending.sessionId}**`);
+          lines.push(`  - Question: ${pending.question}`);
+          lines.push(`  - Since: ${pending.detectedAt}`);
+          lines.push(
+            `  - Use \`respond_to_copilot\` to answer`
+          );
+          lines.push("");
+        }
+      }
 
       if (managedSessions.length > 0) {
         lines.push("## Managed Sessions (with metadata)");
         lines.push("");
         for (const session of managedSessions.slice(0, 20)) {
+          lines.push(`- **${session.sessionId}**`);
           lines.push(
-            `- **${session.sessionId}**`
+            `  - Prompt: ${session.initialPrompt.substring(0, 100)}${session.initialPrompt.length > 100 ? "..." : ""}`
           );
-          lines.push(`  - Prompt: ${session.initialPrompt.substring(0, 100)}${session.initialPrompt.length > 100 ? "..." : ""}`);
           lines.push(`  - Model: ${session.model || "default"}`);
           lines.push(`  - Created: ${session.createdAt}`);
           lines.push(`  - Last used: ${session.lastUsedAt}`);
@@ -231,7 +274,9 @@ server.tool(
         }
       }
 
-      lines.push(`## All Copilot Sessions (${copilotSessions.length} total)`);
+      lines.push(
+        `## All Copilot Sessions (${copilotSessions.length} total)`
+      );
       lines.push("");
       // 최근 10개만 표시
       for (const sessionId of copilotSessions.slice(-10)) {
@@ -266,12 +311,81 @@ server.tool(
 );
 
 // ─────────────────────────────────────────────
+// Tool 4: respond_to_copilot
+// ─────────────────────────────────────────────
+server.tool(
+  "respond_to_copilot",
+  "Respond to a Copilot CLI permission question in interactive mode. When Copilot asks for permission (e.g., 'Allow file modification?'), use this tool to send the user's response (e.g., 'yes', 'no', or custom text).",
+  {
+    session_id: z
+      .string()
+      .describe(
+        "The session ID of the Copilot process waiting for input"
+      ),
+    response: z
+      .string()
+      .describe(
+        "Response to send to Copilot (e.g., 'yes', 'no', 'y', 'n', or custom text)"
+      ),
+  },
+  async (args) => {
+    try {
+      const success = pendingInputManager.provideInput(
+        args.session_id,
+        args.response
+      );
+
+      if (success) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Response "${args.response}" sent to Copilot session ${args.session_id}. The conversation will continue.`,
+            },
+          ],
+        };
+      } else {
+        // 대기 중인 입력이 없는 경우
+        const allPending = pendingInputManager.listPending();
+        const hint =
+          allPending.length > 0
+            ? `\nPending sessions: ${allPending.map((p) => p.sessionId).join(", ")}`
+            : "\nNo sessions are currently waiting for input.";
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `No pending input request found for session ${args.session_id}.${hint}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Error responding to Copilot: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// ─────────────────────────────────────────────
 // 서버 시작
 // ─────────────────────────────────────────────
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Copilot CLI MCP Server started (stdio transport)");
+  const mode = getPermissionMode();
+  console.error(
+    `GitHub Copilot CLI MCP Server v0.2.0 started (stdio transport, permission mode: ${mode})`
+  );
 }
 
 main().catch((error) => {

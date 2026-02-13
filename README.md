@@ -1,37 +1,33 @@
-# copilot-cli-mcp-server
+# github-copilot-cli-mcp-server
 
-GitHub Copilot CLI를 Model Context Protocol (MCP) 서버로 래핑하는 Node.js/TypeScript 프로젝트입니다.
+A Node.js/TypeScript project that wraps GitHub Copilot CLI as a Model Context Protocol (MCP) server.
 
-OpenClaw 에이전트가 Copilot CLI를 MCP 도구로 사용할 수 있게 합니다.
+Use Copilot CLI as a tool from any MCP-compatible client (VSCode, OpenClaw, Claude Desktop, etc.).
 
 ## Features
 
-- **단일 MCP 호출로 Copilot 대화 완료**: 프롬프트 전송 → 결과 수신을 하나의 도구 호출로
-- **세션 재개**: 이전 세션 ID로 대화 이어가기
-- **자율 모드**: `--no-ask-user`로 중간 질문 없이 자동 완료
-- **모델 선택**: Copilot이 지원하는 모든 모델 사용 가능
-- **작업 디렉토리 지정**: 파일 접근이 필요한 작업에 cwd 지정 가능
+- **Complete Copilot conversations in a single MCP call**: Send a prompt → receive results in one tool call
+- **Session resumption**: Continue previous conversations using session IDs
+- **Permission mode selection**: Interactive (user confirmation) / Autonomous (auto-approve)
+- **Model selection**: Use any model supported by Copilot
+- **Working directory specification**: Set cwd for tasks that require file access
 
 ## Prerequisites
 
-- **Node.js** 20.0.0 이상
-- **GitHub Copilot CLI** 설치 및 인증 완료
+- **Node.js** 20.0.0 or higher
+- **GitHub Copilot CLI** installed and authenticated
   ```bash
-  # gh를 통한 설치
-  gh copilot
-
-  # 또는 직접 설치
-  # https://github.com/github/copilot-cli
+  npm install -g @github/copilot-cli
   ```
-- **GitHub Copilot 구독** (Individual, Business, or Enterprise)
+- **GitHub Copilot subscription** (Individual, Business, or Enterprise)
 
 ## Installation
 
 ### From source
 
 ```bash
-git clone https://github.com/slcwahn/copilot-cli-mcp-server.git
-cd copilot-cli-mcp-server
+git clone https://github.com/slcwahn/github-copilot-cli-mcp-server.git
+cd github-copilot-cli-mcp-server
 npm install
 npm run build
 ```
@@ -46,19 +42,19 @@ npm run dev
 
 ### `run_copilot_conversation`
 
-프롬프트로 Copilot CLI 대화를 실행합니다.
+Runs a Copilot CLI conversation with a prompt.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `prompt` | string | ✅ | Copilot에 보낼 프롬프트 |
-| `model` | string | | AI 모델 (e.g., `claude-sonnet-4`, `gpt-4.1`) |
-| `cwd` | string | | 작업 디렉토리 |
-| `allow_tools` | string[] | | 허용할 도구 목록 |
-| `add_dirs` | string[] | | 추가 접근 허용 디렉토리 |
-| `timeout_ms` | number | | 타임아웃 (기본: 300000ms = 5분) |
-| `no_ask_user` | boolean | | 자율 모드 (기본: true) |
+| `prompt` | string | ✅ | Prompt to send to Copilot |
+| `model` | string | | AI model (e.g., `claude-sonnet-4`, `gpt-4.1`) |
+| `cwd` | string | | Working directory |
+| `allow_tools` | string[] | | List of tools to allow |
+| `add_dirs` | string[] | | Additional directories to grant access |
+| `timeout_ms` | number | | Timeout (default: 300000ms = 5 minutes) |
+| `permission_mode` | string | | Permission mode: `"autonomous"` (default) or `"interactive"` |
 
 **Example:**
 
@@ -75,17 +71,17 @@ npm run dev
 
 ### `resume_copilot_session`
 
-이전 세션을 재개하여 대화를 이어갑니다.
+Resumes a previous session to continue the conversation.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `session_id` | string | ✅ | 세션 ID (UUID) |
-| `prompt` | string | ✅ | 후속 프롬프트 |
-| `model` | string | | AI 모델 |
-| `cwd` | string | | 작업 디렉토리 |
-| `timeout_ms` | number | | 타임아웃 |
+| `session_id` | string | ✅ | Session ID (UUID) |
+| `prompt` | string | ✅ | Follow-up prompt |
+| `model` | string | | AI model |
+| `cwd` | string | | Working directory |
+| `timeout_ms` | number | | Timeout |
 
 **Example:**
 
@@ -101,20 +97,98 @@ npm run dev
 
 ### `list_copilot_sessions`
 
-재개 가능한 Copilot CLI 세션 목록을 보여줍니다.
+Lists resumable Copilot CLI sessions.
+
+### `respond_to_copilot`
+
+Responds to Copilot's permission prompts in Interactive mode.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `session_id` | string | ✅ | Pending session ID |
+| `response` | string | ✅ | Response (`"yes"`, `"no"`, or free text) |
 
 ## Configuration
 
-### MCP Client (OpenClaw / Claude Desktop)
+### VSCode
 
-`mcp-config.json`에 추가:
+Add the following to your `.vscode/mcp.json` file:
+
+```json
+{
+  "servers": {
+    "github-copilot-cli": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/github-copilot-cli-mcp-server/dist/index.js"],
+      "env": {
+        "COPILOT_PERMISSION_MODE": "interactive"
+      }
+    }
+  }
+}
+```
+
+Or use the Command Palette: **MCP: Add Server** → **stdio** → enter the configuration above.
+
+> **Tip**: Use `${workspaceFolder}` to specify relative paths based on your workspace.
+
+For global configuration, use the Command Palette: **MCP: Open User Configuration** to add it to your user profile.
+
+### OpenClaw (mcporter)
+
+[OpenClaw](https://openclaw.ai) supports MCP servers through the `mcporter` skill.
+
+#### Register via mcporter CLI
+
+```bash
+# Register the server
+mcporter config add github-copilot-cli \
+  --command node \
+  --arg /path/to/github-copilot-cli-mcp-server/dist/index.js \
+  --env COPILOT_PERMISSION_MODE=autonomous
+
+# Verify registration
+mcporter list
+
+# Check tool schema
+mcporter list github-copilot-cli --schema
+
+# Call a tool directly
+mcporter call github-copilot-cli.run_copilot_conversation prompt="Fix the bug in main.ts"
+```
+
+#### Edit mcporter config file directly
+
+`~/.mcporter/mcporter.json` or project-level `config/mcporter.json`:
+
+```json
+{
+  "servers": {
+    "github-copilot-cli": {
+      "transport": "stdio",
+      "command": "node",
+      "args": ["/path/to/github-copilot-cli-mcp-server/dist/index.js"],
+      "env": {
+        "COPILOT_PERMISSION_MODE": "autonomous"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "copilot-cli": {
+    "github-copilot-cli": {
       "command": "node",
-      "args": ["/path/to/copilot-cli-mcp-server/dist/index.js"]
+      "args": ["/path/to/github-copilot-cli-mcp-server/dist/index.js"]
     }
   }
 }
@@ -124,79 +198,139 @@ npm run dev
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `COPILOT_CLI_PATH` | (auto-detect) | Copilot CLI 바이너리 경로 |
+| `COPILOT_CLI_PATH` | (auto-detect) | Path to Copilot CLI binary |
+| `COPILOT_PERMISSION_MODE` | `autonomous` | Permission mode: `autonomous` or `interactive` |
+
+## Permission Handling
+
+Copilot CLI may request user approval for file modifications, shell command execution, and other actions. This MCP server supports two permission modes:
+
+### Autonomous Mode (default)
+
+```
+COPILOT_PERMISSION_MODE=autonomous
+```
+
+- Runs Copilot CLI with `--allow-all-tools --no-ask-user` flags
+- Auto-approves all permissions and completes without user prompts
+- **Best for**: Trusted tasks, automation pipelines, CI/CD
+
+### Interactive Mode
+
+```
+COPILOT_PERMISSION_MODE=interactive
+```
+
+- Runs Copilot CLI with PTY for interactive I/O
+- Returns `needsInput: true` in the MCP response when a permission prompt is detected
+- The MCP client (user or agent) responds via the `respond_to_copilot` tool
+
+**Interactive Mode Flow:**
+
+```
+MCP Client                    MCP Server                   Copilot CLI
+    │                              │                            │
+    │ run_copilot_conversation     │                            │
+    ├─────────────────────────────►│  spawn (PTY)               │
+    │                              ├───────────────────────────►│
+    │                              │                            │
+    │                              │  "Modify this file?"       │
+    │                              │◄───────────────────────────┤
+    │  { needsInput: true,         │                            │
+    │    question: "Modify..." }   │                            │
+    │◄─────────────────────────────┤                            │
+    │                              │                            │
+    │  respond_to_copilot("yes")   │                            │
+    ├─────────────────────────────►│  write "yes\n"             │
+    │                              ├───────────────────────────►│
+    │                              │                            │
+    │                              │  (complete)                │
+    │                              │◄───────────────────────────┤
+    │  { output: "..." }           │                            │
+    │◄─────────────────────────────┤                            │
+```
+
+> **Note**: Interactive mode requires `node-pty` (optional dependency). If not installed, it automatically falls back to autonomous mode.
 
 ## Architecture
 
 ```
-MCP Client (OpenClaw/Claude)
+MCP Client (VSCode / OpenClaw / Claude Desktop)
     │
     │ stdio (JSON-RPC)
     ▼
-┌───────────────────────────────┐
-│   copilot-cli-mcp-server      │
-│                               │
-│  ┌─────────────────────────┐  │
-│  │  MCP Server (stdio)     │  │
-│  │  - run_copilot_conversation │
-│  │  - resume_copilot_session   │
-│  │  - list_copilot_sessions    │
-│  └───────────┬─────────────┘  │
-│              │                │
-│  ┌───────────▼─────────────┐  │
-│  │  Copilot Runner         │  │
-│  │  (child_process.spawn)  │  │
-│  └───────────┬─────────────┘  │
-│              │                │
-│  ┌───────────▼─────────────┐  │
-│  │  Session Manager        │  │
-│  │  (session metadata)     │  │
-│  └─────────────────────────┘  │
-└───────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│   github-copilot-cli-mcp-server              │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │  MCP Server (stdio)                    │  │
+│  │  - run_copilot_conversation            │  │
+│  │  - resume_copilot_session              │  │
+│  │  - list_copilot_sessions               │  │
+│  │  - respond_to_copilot                  │  │
+│  └──────────────┬─────────────────────────┘  │
+│                 │                             │
+│  ┌──────────────▼─────────────────────────┐  │
+│  │  Permission Handler                    │  │
+│  │  (autonomous / interactive)            │  │
+│  └──────────────┬─────────────────────────┘  │
+│                 │                             │
+│  ┌──────────────▼─────────────────────────┐  │
+│  │  Copilot Runner                        │  │
+│  │  (spawn / PTY)                         │  │
+│  └──────────────┬─────────────────────────┘  │
+│                 │                             │
+│  ┌──────────────▼─────────────────────────┐  │
+│  │  Session Manager                       │  │
+│  │  (session metadata + pending input)    │  │
+│  └────────────────────────────────────────┘  │
+└──────────────────────────────────────────────┘
     │
-    │ spawn
+    │ spawn / PTY
     ▼
-  copilot -p "prompt" -s --allow-all-tools
+  copilot -p "prompt" -s [--allow-all-tools | interactive]
 ```
 
 ## Development
 
 ```bash
-# 개발 모드
+# Development mode
 npm run dev
 
-# 빌드
+# Build
 npm run build
 
-# 타입 체크
+# Type check
 npm run typecheck
 
-# 테스트
+# Test
 npm test
 ```
 
 ## How It Works
 
-1. MCP 클라이언트가 `run_copilot_conversation` 도구를 호출
-2. MCP 서버가 `copilot -p "<prompt>" -s --allow-all-tools --no-ask-user` 실행
-3. Copilot CLI가 작업 수행 (코드 생성, 수정, 분석 등)
-4. 완료 후 출력을 MCP 응답으로 반환
-5. 세션 ID가 있으면 `resume_copilot_session`으로 재개 가능
+1. The MCP client calls the `run_copilot_conversation` tool
+2. Depending on the permission mode:
+   - **Autonomous**: Runs `copilot -p "<prompt>" -s --allow-all-tools --no-ask-user`
+   - **Interactive**: Runs with PTY, forwarding permission prompts to the MCP client
+3. Copilot CLI performs the task (code generation, modification, analysis, etc.)
+4. Returns the output as an MCP response upon completion
+5. If a session ID is available, the session can be resumed via `resume_copilot_session`
 
 ## Copilot CLI Options Used
 
 | Flag | Purpose |
 |------|---------|
-| `-p <prompt>` | 비대화형 모드로 프롬프트 실행 |
-| `-s` | Silent 모드 (통계 없이 응답만) |
-| `--allow-all-tools` | 모든 도구 자동 승인 |
-| `--no-ask-user` | 질문 없이 자율 동작 |
-| `--no-custom-instructions` | AGENTS.md 등 무시 |
-| `--no-color` | ANSI 색상 비활성화 |
-| `--no-alt-screen` | 터미널 대체 화면 비활성화 |
-| `--resume <id>` | 세션 재개 |
-| `--model <model>` | 모델 선택 |
-| `--add-dir <dir>` | 추가 디렉토리 접근 |
+| `-p <prompt>` | Run prompt in non-interactive mode |
+| `-s` | Silent mode (response only, no stats) |
+| `--allow-all-tools` | Auto-approve all tools (autonomous mode) |
+| `--no-ask-user` | Autonomous operation without prompts (autonomous mode) |
+| `--no-custom-instructions` | Ignore AGENTS.md and similar files |
+| `--no-color` | Disable ANSI colors |
+| `--no-alt-screen` | Disable terminal alternate screen |
+| `--resume <id>` | Resume a session |
+| `--model <model>` | Select a model |
+| `--add-dir <dir>` | Grant access to additional directories |
 
 ## License
 
@@ -207,4 +341,5 @@ MIT
 - [GitHub Copilot CLI](https://github.com/github/copilot-cli)
 - [Model Context Protocol](https://modelcontextprotocol.io)
 - [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
+- [VSCode MCP Server Setup](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
 - [Similar project (Python)](https://github.com/wminson/copilot-mcp-server)

@@ -78,7 +78,7 @@ describe("MCP Server Integration", () => {
       result?: { serverInfo?: { name?: string } };
     };
     expect(response.result?.serverInfo?.name).toBe(
-      "copilot-cli-mcp-server"
+      "github-copilot-cli-mcp-server"
     );
   });
 
@@ -102,6 +102,7 @@ describe("MCP Server Integration", () => {
     expect(toolNames).toContain("run_copilot_conversation");
     expect(toolNames).toContain("resume_copilot_session");
     expect(toolNames).toContain("list_copilot_sessions");
+    expect(toolNames).toContain("respond_to_copilot");
   });
 
   it("lists sessions without error", async () => {
