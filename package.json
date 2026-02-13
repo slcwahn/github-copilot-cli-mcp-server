@@ -1,6 +1,6 @@
 {
   "name": "github-copilot-cli-mcp-server",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server that wraps GitHub Copilot CLI for OpenClaw agents",
   "type": "module",
   "main": "dist/index.js",
